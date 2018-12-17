@@ -205,6 +205,11 @@ router.get('/login/info', async (ctx,next)=>{
 
 router.get('/user/addRole', async (ctx,next)=>{
   let {ids, id} = ctx.request.query
+  if (!Array.isArray(ids)) {
+    let arr = []
+    arr.push(ids)
+    ids = arr
+  }
   let str = ''
   let len = ids.length
   let arr = []
@@ -280,6 +285,11 @@ router.delete('/user/delRoleByUser', async (ctx,next)=>{
 
 router.get('/user/addDept', async (ctx,next)=>{
   let {departmentId, userIds} = ctx.request.query
+  if (!Array.isArray(userIds)) {
+    let arr = []
+    arr.push(userIds)
+    userIds = arr
+  }
   let str = ''
   let len = userIds.length
   let arr = []
