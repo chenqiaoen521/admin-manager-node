@@ -38,6 +38,7 @@ router.post('/login', async (ctx,next)=>{
 
 
 router.post('/user/add', async (ctx,next)=>{
+  debugger
   let {username, password} = ctx.request.body
   let md5 = crypto.createHash("md5")
   let newPas = md5.update(password).digest("hex")
@@ -105,14 +106,16 @@ router.get('/user/list', async (ctx,next)=>{
     count = JSON.parse(JSON.stringify(res)).count
   })
   let offset = (~~page-1) * limit
-  await User.findAll({
+  await db.query('SELECT u.username, u.id, u.status, u.createdAt ,u.updatedAt, d.department_name as departmentName, d.department_id as departmentId FROM users u left join userdept ud on u.id = ud.id  left join yd_depts d on ud.department_id = d.department_id limit ?, ?', 
+  { replacements: [offset, ~~limit] })
+  /*await User.findAll({
     attributes: ['id', 'username', 'status', 'createdAt', 'updatedAt'],
     offset, limit: ~~limit
-  }).then(res => {
+  })*/.then(res => {
     ctx.body = {
       message: '查询成功',
       code: 1,
-      data: res,
+      data: res[0],
       count
     }
   }, err => {
@@ -182,14 +185,15 @@ router.post('/user/update/role', async (ctx,next)=>{
 router.get('/login/info', async (ctx,next)=>{
   let token = ctx.request.headers['x-token']
   let code = jwt.decode(token, {secret})
-  await db.query(`select * from yd_auths a where FIND_IN_SET (a.id, (select r.groupid
- from yd_users u right join yd_roles r on u.yd_role_id = r.id where u.id = ${code.id}))`, { type: sequelize.QueryTypes.SELECT})
+  /*await db.query(`select * from yd_auths a where FIND_IN_SET (a.id, (select r.groupid
+ from yd_users u right join yd_roles r on u.yd_role_id = r.id where u.id = ${code.id}))`, { type: sequelize.QueryTypes.SELECT})*/
+ await db.query(`select * from yd_perms perm right join (select * from rolepermission where role_id = (SELECT role_id FROM userrole WHERE id = ${code.id})) r on perm.permission_id = r.permission_id`)
   .then(data => {
     ctx.body = {
       message: '成功',
       code: 1,
       name: code.name, 
-      data
+      data: data[0]
     }
   }, err => {
     ctx.body = {
@@ -198,4 +202,128 @@ router.get('/login/info', async (ctx,next)=>{
     }
   })
 })
+
+router.get('/user/addRole', async (ctx,next)=>{
+  let {ids, id} = ctx.request.query
+  let str = ''
+  let len = ids.length
+  let arr = []
+  for (let i = 0; i < len; i++) {
+    str += '(?,?,?,?),'
+    arr.push(id, new Date(), new Date(), ids[i])
+  }
+  str = str.substring(0, str.length - 1)
+  await db.query(`INSERT INTO userrole (id, createdAt, updatedAt, role_id) values ${str} ON DUPLICATE KEY UPDATE id = VALUES(id)`,
+    { replacements: arr}
+  ).then(res => {
+    ctx.body = {
+      message: '成功',
+      success: true,
+      code: 1
+    }
+  }, err => {
+    console.log(err)
+    ctx.body = {
+      message: '添加失败',
+      code: -1
+    }
+  })
+})
+
+router.get('/user/getUserByRole', async (ctx,next)=>{
+  let {id} = ctx.request.query
+  await db.query(`SELECT role_id, role_name from role2 where role_id in (SELECT role_id FROM userrole WHERE id = ?)`,
+    { replacements: [id]}
+  ).then(res => {
+    ctx.body = {
+      message: '成功',
+      success: true,
+      code: 1,
+      row: res[0]
+    }
+  }, err => {
+    console.log(err)
+    ctx.body = {
+      message: '失败',
+      success: false,
+      code: -1
+    }
+  })
+})
+
+router.delete('/user/delRoleByUser', async (ctx,next)=>{
+  let {ids, id} = ctx.request.body
+  let str = ''
+  let len = ids.length
+  let arr = []
+  arr.push(id)
+  for (let i = 0; i < len; i++) {
+    str += '?,'
+    arr.push(ids[i])
+  }
+  str = str.substring(0, str.length - 1)
+  await db.query(`DELETE FROM userrole WHERE id = ? and role_id in (${str})`,
+    { replacements: arr}
+  ).then(res => {
+    ctx.body = {
+      message: '删除成功',
+      success: true,
+      code: 1
+    }
+  }, err => {
+    ctx.body = {
+      message: '删除失败',
+      code: -1
+    }
+  })
+})
+
+router.get('/user/addDept', async (ctx,next)=>{
+  let {departmentId, userIds} = ctx.request.query
+  let str = ''
+  let len = userIds.length
+  let arr = []
+  for (let i = 0; i < len; i++) {
+    str += '(?,?,?,?),'
+    arr.push(userIds[i], new Date(), new Date(), departmentId)
+  }
+  str = str.substring(0, str.length - 1)
+  await db.query(`INSERT INTO userdept (id, createdAt, updatedAt, department_id) values ${str} ON DUPLICATE KEY UPDATE id = VALUES(id)`,
+    { replacements: arr}
+  ).then(res => {
+    ctx.body = {
+      message: '成功',
+      success: true,
+      code: 1
+    }
+  }, err => {
+    console.log(err)
+    ctx.body = {
+      message: '添加失败',
+      code: -1
+    }
+  })
+})
+
+router.delete('/user/delDeptByUser', async (ctx,next)=>{
+  let {departmentId, userId} = ctx.request.body
+  let arr = []
+  arr.push(userId)
+  arr.push(departmentId)
+  await db.query('DELETE FROM userdept WHERE id = ? and department_id = ?',
+    { replacements: arr}
+  ).then(res => {
+    ctx.body = {
+      message: '删除成功',
+      success: true,
+      code: 1
+    }
+  }, err => {
+    ctx.body = {
+      message: '删除失败',
+      code: -1
+    }
+  })
+})
+
 module.exports = router

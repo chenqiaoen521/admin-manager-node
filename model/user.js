@@ -5,7 +5,7 @@ var db = require('./database')
  * 用户
  * 
  */
-const User = db.define('yd_users', {
+/*const User = db.define('yd_users', {
   id: {
     type: Sequelize.INTEGER,
     primaryKey: true,
@@ -27,6 +27,23 @@ const User = db.define('yd_users', {
       model: 'yd_roles',
       key: 'id'
     }
+  }
+})*/
+const User = db.define('users', {
+  id: {
+    type: Sequelize.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  username: {
+    type: Sequelize.STRING,
+    unique: true
+  },
+  password: {
+    type: Sequelize.STRING
+  },
+  status: {
+    type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true
   }
 })
 // User.sync({force: true})

@@ -2,7 +2,7 @@ var Sequelize = require('sequelize')
 var db = require('./database')
 
 /*
- * 权限
+ * 菜单
  * 
  */
 const Auth = db.define('yd_auths', {
